@@ -1,0 +1,22 @@
+# Fichiers internes v0
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.design-cache/
+.v0-trash/
+.vercel/
+
+# Secrets et configuration locale
+.env*
+!.env.example
+
+# Dépendances et fichiers générés
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+*.log
+.DS_Store
