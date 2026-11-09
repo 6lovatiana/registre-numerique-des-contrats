@@ -2,7 +2,7 @@
 
 import { Bar, DaysBadge, Panel, PanelHeader, Stat } from '@/components/registry/bits'
 import { daysLeft } from '@/lib/alerts'
-import { formatCompactEUR, formatEUR, formatPercent } from '@/lib/format'
+import { formatCompactMGA, formatMGA, formatPercent } from '@/lib/format'
 import { budgetVsActual, futureCommitments, potentialLatePenalties, tacitExposure } from '@/lib/metrics'
 import type { Contract } from '@/lib/types'
 
@@ -17,10 +17,10 @@ export function FinanceView({ contracts }: { contracts: Contract[] }) {
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {commitments.map((c) => (
-          <Stat key={c.horizon} label={`Engagements ${c.horizon} jours`} value={formatCompactEUR(c.value)} />
+          <Stat key={c.horizon} label={`Engagements ${c.horizon} jours`} value={formatCompactMGA(c.value)} />
         ))}
-        <Stat label="Pénalités de retard potentielles" value={formatCompactEUR(penalties.total)} tone="success" hint={`${penalties.items.length} contrats concernés`} />
-        <Stat label="Exposition reconduction tacite" value={formatCompactEUR(tacit.total)} tone="warning" hint="Sous 90 jours" />
+        <Stat label="Pénalités de retard potentielles" value={formatCompactMGA(penalties.total)} tone="success" hint={`${penalties.items.length} contrats concernés`} />
+        <Stat label="Exposition reconduction tacite" value={formatCompactMGA(tacit.total)} tone="warning" hint="Sous 90 jours" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -34,7 +34,7 @@ export function FinanceView({ contracts }: { contracts: Contract[] }) {
                   <div className="flex justify-between gap-2">
                     <span className="font-medium">{b.department}</span>
                     <span className={ratio > 1 ? 'text-xs font-medium text-destructive tabular-nums' : 'text-xs text-muted-foreground tabular-nums'}>
-                      {formatPercent(ratio)} · {formatCompactEUR(b.actual)} / {formatCompactEUR(b.budget)}
+                      {formatPercent(ratio)} · {formatCompactMGA(b.actual)} / {formatCompactMGA(b.budget)}
                     </span>
                   </div>
                   <div className="mt-1.5 flex flex-col gap-1">
@@ -68,7 +68,7 @@ function ExposureList({ title, description, items }: { title: string; descriptio
               <p className="text-xs text-muted-foreground tabular-nums">{c.reference}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="tabular-nums">{formatEUR(value)}</span>
+              <span className="tabular-nums">{formatMGA(value)}</span>
               <DaysBadge days={daysLeft(c)} />
             </div>
           </li>

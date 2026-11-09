@@ -1,6 +1,6 @@
 'use client'
 
-import { formatCompactEUR, formatPercent } from '@/lib/format'
+import { formatCompactMGA, formatPercent } from '@/lib/format'
 import { portfolioSummary } from '@/lib/metrics'
 import { useRegistry } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -10,7 +10,7 @@ export function SummaryBanner() {
   const s = portfolioSummary(contracts, disputes)
   const items = [
     { label: 'Contrats actifs', value: s.count },
-    { label: 'Valeur totale', value: formatCompactEUR(s.total) },
+    { label: 'Valeur totale', value: formatCompactMGA(s.total) },
     { label: 'Alertes J-30', value: s.j30, tone: 'warning' },
     { label: 'Alertes J-10', value: s.j10, tone: 'danger' },
     { label: 'Conformité', value: formatPercent(s.compliance), tone: 'success' },

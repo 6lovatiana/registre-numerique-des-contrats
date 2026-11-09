@@ -36,7 +36,7 @@ export function AlertsWorkspace() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Alertes J-10 (urgence)" value={j10} tone="danger" hint="0 à 10 jours" />
         <Stat label="Alertes J-30 (critique)" value={j30} tone="warning" hint="11 à 30 jours" />
-        <Stat label="Notifications actives (90 j)" value={notifications.length} />
+        <Stat label="Jalons d’alerte (90 j)" value={notifications.length} />
         <Stat label="Dont reconduction tacite" value={tacit} hint="Calcul sur date limite de préavis" />
       </div>
 
@@ -51,7 +51,7 @@ export function AlertsWorkspace() {
           <Panel>
             <PanelHeader
               title="Frise chronologique du cycle d’alertes"
-              description={`${selected.reference} · ${selected.supplier.name} · ${daysLeft(selected)} jours avant la date de référence`}
+              description={`${selected.reference} · ${selected.supplier.name} · ${daysLeft(selected) < 0 ? `${Math.abs(daysLeft(selected))} jours de retard` : `${daysLeft(selected)} jours avant la date de référence`}`}
             />
             <AlertTimeline contract={selected} />
             <p className="mt-5 flex gap-2 rounded-lg bg-accent p-3 text-xs text-accent-foreground">
@@ -65,7 +65,7 @@ export function AlertsWorkspace() {
           </Panel>
 
           <Panel>
-            <PanelHeader title="Modèles de notification" description="Rendu des messages envoyés à chaque jalon pour ce contrat" />
+            <PanelHeader title="Aperçu des rappels" description="Messages prévus aux dates clés du contrat" />
             <ol className="flex flex-col gap-3">
               {MILESTONES.map((m) => (
                 <li key={m.level} className="rounded-lg border p-4">

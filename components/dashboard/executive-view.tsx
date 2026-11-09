@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CriticalityBadge, DaysBadge, Panel, PanelHeader, Stat } from '@/components/registry/bits'
 import { daysLeft } from '@/lib/alerts'
-import { formatCompactEUR, formatDate, formatEUR, formatPercent } from '@/lib/format'
+import { formatCompactMGA, formatDate, formatMGA, formatPercent } from '@/lib/format'
 import { ESCALATION_THRESHOLD } from '@/lib/mock-data'
 import { OPEN_DISPUTE, contractLeakage, redAlerts, renewalVsTermination, tacitExposure } from '@/lib/metrics'
 import { useRegistry } from '@/lib/store'
@@ -14,6 +15,7 @@ import type { Contract } from '@/lib/types'
 
 export function ExecutiveView({ contracts }: { contracts: Contract[] }) {
   const { disputes, decisions, decide, contractById } = useRegistry()
+  const [decisionEnCours, setDecisionEnCours] = useState<string | null>(null)
   const total = contracts.reduce((s, c) => s + c.amount, 0)
   const red = redAlerts(contracts)
   const major = disputes.filter((d) => {
@@ -22,14 +24,24 @@ export function ExecutiveView({ contracts }: { contracts: Contract[] }) {
   })
   const pending = decisions.filter((d) => d.status === 'En attente')
 
+  async function traiterDecision(id: string, status: 'Approuvée' | 'Rejetée', title: string) {
+    setDecisionEnCours(id)
+    try {
+      await decide(id, status)
+      toast.success(status === 'Approuvée' ? 'Demande approuvée' : 'Demande rejetée', { description: title })
+    } catch (error) {
+      toast.error('Décision non enregistrée', { description: error instanceof Error ? error.message : 'Vérifiez la connexion à la base de données.' })
+    } finally { setDecisionEnCours(null) }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Stat label="Valeur sous gestion" value={formatCompactEUR(total)} />
+        <Stat label="Valeur sous gestion" value={formatCompactMGA(total)} />
         <Stat label="Contrats en alerte rouge" value={red.length} tone="danger" />
-        <Stat label="Litiges majeurs" value={major.length} tone="warning" hint={`Seuil d’escalade ${formatCompactEUR(ESCALATION_THRESHOLD)}`} />
+        <Stat label="Litiges majeurs" value={major.length} tone="warning" hint={`Seuil d’escalade ${formatCompactMGA(ESCALATION_THRESHOLD)}`} />
         <Stat label="Taux de renouvellement" value={formatPercent(renewalVsTermination(contracts).rate)} />
-        <Stat label="Risque financier 90 j" value={formatCompactEUR(tacitExposure(contracts).total + contractLeakage(contracts).total)} hint="Reconduction + fuite" />
+        <Stat label="Risque financier 90 j" value={formatCompactMGA(tacitExposure(contracts).total + contractLeakage(contracts).total)} hint="Reconduction + fuite" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -41,7 +53,7 @@ export function ExecutiveView({ contracts }: { contracts: Contract[] }) {
                 <div className="min-w-0">
                   <p className="truncate font-medium">{c.supplier.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {c.reference} · {formatEUR(c.amount)}
+                    {c.reference} · {formatMGA(c.amount)}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -65,7 +77,7 @@ export function ExecutiveView({ contracts }: { contracts: Contract[] }) {
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{d.title}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {c?.reference} · {formatEUR(d.amount)} · avant le {formatDate(d.dueDate)}
+                        {c?.reference} · {formatMGA(d.amount)} · avant le {formatDate(d.dueDate)}
                       </p>
                     </div>
                     {d.status !== 'En attente' && (
@@ -75,11 +87,11 @@ export function ExecutiveView({ contracts }: { contracts: Contract[] }) {
                   <p className="mt-2 text-xs text-pretty text-muted-foreground">{d.context}</p>
                   {d.status === 'En attente' && (
                     <div className="mt-3 flex gap-2">
-                      <Button size="sm" onClick={() => (decide(d.id, 'Approuvée'), toast.success('Décision approuvée', { description: d.title }))}>
+                      <Button size="sm" disabled={decisionEnCours === d.id} onClick={() => void traiterDecision(d.id, 'Approuvée', d.title)}>
                         <Check data-icon="inline-start" aria-hidden />
                         Approuver
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => (decide(d.id, 'Rejetée'), toast('Décision rejetée', { description: d.title }))}>
+                      <Button size="sm" variant="outline" disabled={decisionEnCours === d.id} onClick={() => void traiterDecision(d.id, 'Rejetée', d.title)}>
                         <X data-icon="inline-start" aria-hidden />
                         Rejeter
                       </Button>
@@ -113,7 +125,7 @@ export function ExecutiveView({ contracts }: { contracts: Contract[] }) {
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="tabular-nums">{formatEUR(d.amountAtStake)}</p>
+                  <p className="tabular-nums">{formatMGA(d.amountAtStake)}</p>
                   <p className="text-xs text-muted-foreground">{d.status}</p>
                 </div>
               </Link>

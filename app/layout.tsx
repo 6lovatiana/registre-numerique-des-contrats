@@ -6,6 +6,8 @@ import { Toaster } from '@/components/ui/sonner'
 import { RegistryProvider } from '@/lib/store'
 import './globals.css'
 
+export const dynamic = 'force-dynamic'
+
 const michroma = Michroma({ subsets: ['latin'], weight: '400', variable: '--font-michroma' })
 const plex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-plex' })
 

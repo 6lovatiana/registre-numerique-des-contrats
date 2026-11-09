@@ -1,4 +1,4 @@
-import { computeNoticeDeadline } from './alerts'
+﻿import { computeNoticeDeadline } from './alerts'
 import type { BillingPeriod, Contract, ContractType, Criticality, Currency, Department, TerminationMode } from './types'
 
 export interface ContractFormState {
@@ -9,7 +9,7 @@ export interface ContractFormState {
   effectiveDate: string
   endDate: string
   supplierName: string
-  siret: string
+  nif: string
   legalContact: string
   email: string
   department: Department | ''
@@ -50,13 +50,13 @@ export const EMPTY_FORM: ContractFormState = {
   effectiveDate: '',
   endDate: '',
   supplierName: '',
-  siret: '',
+  nif: '',
   legalContact: '',
   email: '',
   department: '',
   owner: '',
   amount: '',
-  currency: 'EUR',
+  currency: 'MGA',
   billing: '',
   paymentTerms: '',
   priceRevision: false,
@@ -87,10 +87,11 @@ export const MAX_B2B_NOTICE_DAYS = 90
 
 const isPositive = (v: string) => v.trim() !== '' && Number(v) > 0
 const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+const isValidDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v
 
 export function formNoticeDeadline(f: ContractFormState) {
   const days = Number(f.noticeDays)
-  if (!f.tacitRenewal || !f.endDate || !Number.isInteger(days) || days <= 0) return ''
+  if (!f.endDate || !Number.isInteger(days) || days <= 0) return ''
   return computeNoticeDeadline(f.endDate, days)
 }
 
@@ -111,12 +112,13 @@ export function validateContractForm(f: ContractFormState, existingReferences: S
   req('signatureDate')
   req('effectiveDate')
   req('endDate')
+  for (const key of ['signatureDate', 'effectiveDate', 'endDate'] as const) if (f[key] && !isValidDate(f[key])) e[key] = 'Date invalide'
   if (f.signatureDate && f.effectiveDate && f.effectiveDate < f.signatureDate) e.effectiveDate = 'La date d’effet doit suivre la signature'
   if (f.effectiveDate && f.endDate && f.endDate <= f.effectiveDate) e.endDate = 'L’échéance doit être postérieure à la date d’effet'
 
   req('supplierName')
-  if (!f.siret.trim()) e.siret = 'Champ obligatoire'
-  else if (!/^\d{14}$/.test(f.siret.replace(/\s/g, ''))) e.siret = 'Le SIRET comporte 14 chiffres'
+  if (!f.nif.trim()) e.nif = 'Champ obligatoire'
+  else if (!/^\d{10}$/.test(f.nif.replace(/\s/g, ''))) e.nif = 'Le NIF comporte 10 chiffres'
   req('legalContact')
   if (!f.email.trim()) e.email = 'Champ obligatoire'
   else if (!EMAIL_PATTERN.test(f.email)) e.email = 'Adresse email invalide'
@@ -131,9 +133,10 @@ export function validateContractForm(f: ContractFormState, existingReferences: S
   if (!isPositive(f.durationMonths) || !Number.isInteger(Number(f.durationMonths))) e.durationMonths = 'Durée en mois entiers, supérieure à 0'
   if (f.tacitRenewal) {
     if (!isPositive(f.renewalMonths) || !Number.isInteger(Number(f.renewalMonths))) e.renewalMonths = 'Durée en mois entiers, supérieure à 0'
+  }
+  if (f.noticeDays.trim()) {
     const notice = Number(f.noticeDays)
-    if (!f.noticeDays.trim()) e.noticeDays = 'Champ obligatoire'
-    else if (!Number.isInteger(notice) || notice <= 0) e.noticeDays = 'Nombre de jours entier, supérieur à 0'
+    if (!Number.isInteger(notice) || notice <= 0) e.noticeDays = 'Nombre de jours entier, supérieur à 0'
     else if (notice > MAX_B2B_NOTICE_DAYS) e.noticeDays = `Le préavis B2B ne peut excéder ${MAX_B2B_NOTICE_DAYS} jours`
   }
   req('terminationMode', 'Sélectionnez un mode de résiliation')
@@ -148,7 +151,10 @@ export function validateContractForm(f: ContractFormState, existingReferences: S
 
   if (!f.contractFile) e.contractFile = 'Le document contractuel est obligatoire'
   else if (!isPdf(f.contractFile)) e.contractFile = 'Format PDF attendu'
+  else if (f.contractFile.size > 20 * 1024 * 1024) e.contractFile = 'PDF limité à 20 Mo'
   if (f.termsFile && !isPdf(f.termsFile)) e.termsFile = 'Format PDF attendu'
+  else if (f.termsFile && f.termsFile.size > 20 * 1024 * 1024) e.termsFile = 'PDF limité à 20 Mo'
+  if (f.amendments.some((file) => !isPdf(file) || file.size > 20 * 1024 * 1024)) e.amendments = 'Chaque avenant doit être un PDF de 20 Mo maximum'
   req('criticality', 'Sélectionnez un niveau de criticité')
 
   return e
@@ -164,7 +170,7 @@ export function formToContract(f: ContractFormState): Contract {
     signatureDate: f.signatureDate,
     effectiveDate: f.effectiveDate,
     endDate: f.endDate,
-    supplier: { name: f.supplierName.trim(), siret: f.siret.replace(/\s/g, ''), legalContact: f.legalContact.trim(), email: f.email.trim() },
+    supplier: { name: f.supplierName.trim(), nif: f.nif.replace(/\s/g, ''), legalContact: f.legalContact.trim(), email: f.email.trim() },
     department: f.department as Department,
     owner: f.owner.trim(),
     amount: Number(f.amount),
@@ -176,7 +182,7 @@ export function formToContract(f: ContractFormState): Contract {
     durationMonths: Number(f.durationMonths),
     tacitRenewal: f.tacitRenewal,
     renewalMonths: f.tacitRenewal ? num(f.renewalMonths) : undefined,
-    noticeDays: f.tacitRenewal ? num(f.noticeDays) : undefined,
+    noticeDays: num(f.noticeDays),
     terminationMode: f.terminationMode as TerminationMode,
     latePenalty: f.latePenalty,
     latePenaltyRate: f.latePenalty ? num(f.latePenaltyRate) : undefined,
@@ -215,36 +221,4 @@ export interface Extraction {
   label: string
   value: string | boolean
   score: number
-}
-
-/** Simulated OCR/NLP output for an uploaded supplier contract. */
-export function simulateExtraction(fileName: string, nextReference: string): Extraction[] {
-  const seed = [...fileName].reduce((s, ch) => s + ch.charCodeAt(0), 0)
-  const jitter = (base: number) => Math.min(99, base + (seed % 3))
-  return [
-    { field: 'reference', label: 'Référence contrat', value: nextReference, score: jitter(97) },
-    { field: 'type', label: 'Type de contrat', value: 'Prestation de services', score: jitter(96) },
-    { field: 'object', label: 'Objet du contrat', value: 'Prestation d’infogérance et de support applicatif niveau 2 pour le système d’information RH.', score: 96 },
-    { field: 'supplierName', label: 'Fournisseur - Raison sociale', value: 'Nexora Services SAS', score: 98 },
-    { field: 'siret', label: 'Fournisseur - SIRET', value: '84215796300027', score: 97 },
-    { field: 'legalContact', label: 'Contact juridique', value: 'Hélène Marchand', score: 81 },
-    { field: 'email', label: 'Email fournisseur', value: 'juridique@nexora-services.fr', score: 79 },
-    { field: 'signatureDate', label: 'Date de signature', value: '2026-09-15', score: 97 },
-    { field: 'effectiveDate', label: 'Date d’effet', value: '2026-10-01', score: 96 },
-    { field: 'endDate', label: 'Date d’échéance initiale', value: '2027-09-30', score: 84 },
-    { field: 'amount', label: 'Montant total HT', value: '186000', score: 82 },
-    { field: 'billing', label: 'Périodicité de facturation', value: 'Mensuelle', score: 97 },
-    { field: 'paymentTerms', label: 'Modalités de paiement', value: '45 jours fin de mois', score: 76 },
-    { field: 'durationMonths', label: 'Durée initiale', value: '12', score: 98 },
-    { field: 'tacitRenewal', label: 'Reconduction tacite', value: true, score: 97 },
-    { field: 'renewalMonths', label: 'Durée de reconduction', value: '12', score: 83 },
-    { field: 'noticeDays', label: 'Préavis de résiliation', value: '60', score: 74 },
-    { field: 'terminationMode', label: 'Mode de résiliation', value: 'Lettre recommandée', score: 96 },
-    { field: 'priceRevision', label: 'Révision de prix', value: true, score: 88 },
-    { field: 'priceIndex', label: 'Index de référence', value: 'Syntec', score: 62 },
-    { field: 'latePenalty', label: 'Pénalités de retard', value: true, score: 97 },
-    { field: 'latePenaltyRate', label: 'Taux de pénalités', value: '1.5', score: 71 },
-    { field: 'latePenaltyCap', label: 'Plafond de pénalités', value: '10', score: 58 },
-    { field: 'bankGuarantee', label: 'Garantie bancaire', value: false, score: 91 },
-  ]
 }

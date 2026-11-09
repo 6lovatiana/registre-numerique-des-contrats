@@ -45,13 +45,13 @@ export function FormSection({ letter, title, description, children }: { letter: 
 export function ConfidenceTag({ score }: { score: number }) {
   const status = confidenceStatus(score)
   const map = {
-    validated: { icon: CheckCircle2, cls: 'bg-success/10 text-success', label: 'IA validé' },
+    validated: { icon: CheckCircle2, cls: 'bg-success/10 text-success', label: 'Validé' },
     review: { icon: AlertTriangle, cls: 'bg-warning/15 text-warning-foreground', label: 'À vérifier' },
-    manual: { icon: Flag, cls: 'bg-destructive/10 text-destructive', label: 'Saisie manuelle' },
+    manual: { icon: Flag, cls: 'bg-destructive/10 text-destructive', label: 'À contrôler' },
   }[status]
   const Icon = map.icon
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums', map.cls)} title={`Confiance IA : ${score} %`}>
+    <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums', map.cls)} title={`Fiabilité estimée : ${score} %`}>
       <Icon className="size-3" aria-hidden />
       {map.label} · {score} %
     </span>
@@ -96,7 +96,7 @@ function FieldShell({ name, label, hint, required, full, children }: { name: Fie
 
 type TextKeys = { [K in FieldKey]: ContractFormState[K] extends string ? K : never }[FieldKey]
 
-export function TextField({ name, label, type = 'text', placeholder, hint, required, full, inputMode, min, step, suffix }: { name: TextKeys; label: string; type?: string; placeholder?: string; hint?: ReactNode; required?: boolean; full?: boolean; inputMode?: 'numeric' | 'decimal' | 'email'; min?: number; step?: string; suffix?: string }) {
+export function TextField({ name, label, type = 'text', placeholder, hint, required, full, inputMode, min, step, suffix, suggestions }: { name: TextKeys; label: string; type?: string; placeholder?: string; hint?: ReactNode; required?: boolean; full?: boolean; inputMode?: 'numeric' | 'decimal' | 'email'; min?: number; step?: string; suffix?: string; suggestions?: string[] }) {
   const { values, set, touch } = useContractForm()
   return (
     <FieldShell name={name} label={label} hint={hint} required={required} full={full}>
@@ -104,6 +104,7 @@ export function TextField({ name, label, type = 'text', placeholder, hint, requi
         <div className="relative">
           <Input
             id={id}
+            list={suggestions ? `${id}-suggestions` : undefined}
             type={type}
             value={values[name]}
             placeholder={placeholder}
@@ -117,6 +118,7 @@ export function TextField({ name, label, type = 'text', placeholder, hint, requi
             onBlur={() => touch(name)}
             className={cn('h-9', suffix && 'pr-12')}
           />
+          {suggestions && <datalist id={`${id}-suggestions`}>{suggestions.map((option) => <option key={option} value={option} />)}</datalist>}
           {suffix && <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-muted-foreground">{suffix}</span>}
         </div>
       )}

@@ -65,7 +65,7 @@ export function NotificationCenter({ compact = false, onSelect }: { compact?: bo
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div>
           <p className="text-sm font-semibold">Centre de notifications</p>
-          <p className="text-xs text-muted-foreground">{notifications.length} alertes sur 90 jours</p>
+          <p className="text-xs text-muted-foreground">{notifications.length} jalons calculés sur 90 jours</p>
         </div>
         {compact && (
           <Link href="/alertes" className="text-xs font-medium text-primary hover:underline">
@@ -110,7 +110,7 @@ export function NotificationCenter({ compact = false, onSelect }: { compact?: bo
                       {level} · {tpl.label}
                     </span>
                     <span className="text-[11px] text-muted-foreground tabular-nums">
-                      émise le {formatShortDate(milestoneDate(c, tpl.offset))}
+                      date du jalon · {formatShortDate(milestoneDate(c, tpl.offset))}
                     </span>
                   </span>
                   <span className="mt-1 block truncate text-sm font-medium">{tpl.subject(c)}</span>

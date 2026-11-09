@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { Bell, FileSignature, Menu, X } from 'lucide-react'
+import { Bell, Menu, X } from 'lucide-react'
 import { NotificationCenter } from '@/components/alerts/notification-center'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useRegistry } from '@/lib/store'
@@ -29,15 +29,8 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Accueil — Registre Numérique des Contrats">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <FileSignature className="size-4" aria-hidden />
-          </span>
-          <span className="font-display hidden text-[11px] leading-tight text-foreground sm:block">
-            REGISTRE
-            <br />
-            <span className="text-muted-foreground">DES CONTRATS</span>
-          </span>
+        <Link href="/" className="flex shrink-0 items-center" aria-label="Accueil — Registre Numérique des Contrats">
+          <img src="/logo.png" alt="AEGIS" className="h-12 w-auto object-contain" />
         </Link>
 
         <nav aria-label="Navigation principale" className="hidden flex-1 lg:block">
@@ -125,3 +118,5 @@ export function TopNav() {
     </header>
   )
 }
+
+

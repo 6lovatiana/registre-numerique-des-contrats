@@ -32,7 +32,7 @@ function haystack(c: Contract) {
       c.type,
       c.object,
       c.supplier.name,
-      c.supplier.siret,
+      c.supplier.nif,
       c.supplier.legalContact,
       c.department,
       c.owner,

@@ -1,12 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { AlertTriangle, FileWarning, Handshake, RefreshCw, XOctagon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CriticalityBadge } from '@/components/registry/bits'
 import { currentMilestone, daysLeft, milestoneTemplate, noticeDeadline } from '@/lib/alerts'
-import { formatDate, formatEUR } from '@/lib/format'
+import { formatDate, formatMGA } from '@/lib/format'
 import { useRegistry, type ContractAction } from '@/lib/store'
 import type { Contract } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -14,22 +15,27 @@ import { MILESTONE_STYLE } from './milestone-style'
 import { ChannelIcons } from './notification-center'
 
 export function AlertCard({ contract }: { contract: Contract }) {
-  const { logAction, actions, createDispute } = useRegistry()
+  const { createDecision, actions, createDispute } = useRegistry()
   const router = useRouter()
+  const [savingAction, setSavingAction] = useState(false)
   const days = daysLeft(contract)
   const level = currentMilestone(days) ?? 'J-30'
   const tpl = milestoneTemplate(level)
   const deadline = noticeDeadline(contract)
   const lastAction = actions.find((a) => a.contractId === contract.id)
 
-  const act = (action: ContractAction) => {
-    logAction(contract.id, action)
-    toast.success(`${action} engagé(e) pour ${contract.reference}`, {
-      description:
-        action === 'Résiliation'
-          ? `Procédure déclenchée · ${contract.terminationMode} à émettre avant le ${formatDate(deadline ?? contract.endDate)}`
-          : `Tâche assignée à ${contract.owner} · horodatée ${new Date().toLocaleString('fr-FR')}`,
-    })
+  const act = async (action: ContractAction) => {
+    setSavingAction(true)
+    try {
+      await createDecision(contract.id, action)
+      toast.success(`Demande de ${action.toLowerCase()} créée`, {
+        description: `Elle est ajoutée aux décisions à examiner pour ${contract.reference}${action === 'Résiliation' ? ` · notification à transmettre par ${contract.terminationMode} avant le ${formatDate(deadline ?? contract.endDate)}` : ''}.`,
+      })
+    } catch (error) {
+      toast.error('Action non enregistrée', { description: error instanceof Error ? error.message : 'Vérifiez la connexion à la base de données.' })
+    } finally {
+      setSavingAction(false)
+    }
   }
 
   const openDispute = async () => {
@@ -78,7 +84,7 @@ export function AlertCard({ contract }: { contract: Contract }) {
         <p className="mt-4 rounded-lg bg-muted/60 p-3 text-sm text-pretty">{tpl.body(contract)}</p>
 
         <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
-          <Meta label="Montant HT" value={formatEUR(contract.amount)} />
+          <Meta label="Montant HT" value={formatMGA(contract.amount)} />
           <Meta label="Criticité" value={<CriticalityBadge value={contract.criticality} />} />
           <Meta label="Reconduction tacite" value={contract.tacitRenewal ? `Oui · ${contract.renewalMonths} mois` : 'Non'} />
           <Meta label="Date limite de préavis" value={deadline ? formatDate(deadline) : '—'} />
@@ -90,19 +96,19 @@ export function AlertCard({ contract }: { contract: Contract }) {
         </dl>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button onClick={() => act('Renouvellement')}>
+          <Button disabled={savingAction} onClick={() => void act('Renouvellement')}>
             <RefreshCw data-icon="inline-start" aria-hidden />
-            Renouveler
+            Demander un renouvellement
           </Button>
-          <Button variant="outline" onClick={() => act('Renégociation')}>
+          <Button variant="outline" disabled={savingAction} onClick={() => void act('Renégociation')}>
             <Handshake data-icon="inline-start" aria-hidden />
-            Renégocier
+            Demander une renégociation
           </Button>
-          <Button variant="destructive" onClick={() => act('Résiliation')}>
+          <Button variant="destructive" disabled={savingAction} onClick={() => void act('Résiliation')}>
             <XOctagon data-icon="inline-start" aria-hidden />
-            Déclencher la procédure de résiliation
+            Demander une résiliation
           </Button>
-          <Button variant="ghost" onClick={openDispute}>
+          <Button variant="ghost" disabled={savingAction} onClick={openDispute}>
             <FileWarning data-icon="inline-start" aria-hidden />
             Signaler un litige
           </Button>

@@ -1,4 +1,5 @@
 import { TODAY, addDays, addMonths } from './alerts'
+import { eurosToMGA, ESCALATION_THRESHOLD_MGA } from './currency'
 import {
   BILLING_PERIODS,
   CONTRACT_TYPES,
@@ -27,26 +28,29 @@ const rng = mulberry32(20261021)
 const pick = <T,>(arr: readonly T[]) => arr[Math.floor(rng() * arr.length)]
 const between = (min: number, max: number) => Math.floor(min + rng() * (max - min + 1))
 
-export const TOTAL_PORTFOLIO_VALUE = 12_400_000
+export const TOTAL_PORTFOLIO_VALUE = eurosToMGA(12_400_000)
 export const CONTRACT_COUNT = 250
-export const ESCALATION_THRESHOLD = 50_000
+export const ESCALATION_THRESHOLD = ESCALATION_THRESHOLD_MGA
 
 const SUPPLIERS = [
-  'Altavia Logistique', 'Bureau Veritas Services', 'Capgemini Technology', 'Dassault Systèmes',
-  'Econocom Group', 'Fnac Darty Pro', 'Groupe Atlantic', 'Hexagone Facility', 'Inetum Solutions',
-  'Jaguar Network', 'Keolis Entreprises', 'Legrand Systèmes', 'Manutan Collectivités', 'Nexity Services',
-  'Onet Propreté', 'Prosegur Sécurité', 'Quadient France', 'Rexel Distribution', 'Sodexo Pro',
-  'Thales Cyber', 'Ubiqus Traduction', 'Veolia Eau Pro', 'Worldline Paiements', 'Xefi Informatique',
-  'Yousign SAS', 'Zscaler France', 'Axians Réseaux', 'Bouygues Telecom Entreprises', 'Cegid Logiciels',
-  'Docaposte', 'Elior Services', 'Fiducial Bureautique', 'Gefco Transport', 'Hiscox Assurances',
-  'ISS Facility', 'Jamespot', 'Kyriba Finance', 'Lyreco France', 'Mazars Conseil', 'Nuxeo Platform',
-  'OVHcloud', 'Planet Vélo Pro', 'Qonto Business', 'Randstad Services', 'Schneider Electric',
-  'Talend Data', 'Umanis Conseil', 'Verisure Pro', 'Wavestone', 'Sopra Steria',
+  'Société Malgache de Transport', 'Telma Entreprises', 'JIRAMA Services', 'Groupe Sodiat',
+  'Ocean Trade Madagascar', 'Madauto Distribution', 'BRED Madagascar', 'Mvola Business',
+  'Habibo Group', 'SMTP Maintenance', 'Inviso Group', 'Airtel Madagascar',
+  'Groupe Filatex', 'Sahanala Export', 'Socolait Professionnels', 'Cotona Industrie',
+  'Madagascar Ground Handling', 'SMMC Toamasina', 'Vaniala Madagascar', 'Groupe Axian',
+  'First Immo', 'MadaSolar Energie', 'Lecofruit Export', 'Mada Green Power',
+  'Baobab Banque Madagascar', 'BMOI Entreprises', 'Star Madagascar', 'MadaNet Informatique',
+  'Fanalamanga Industrie', 'Groupe Tana Water', 'Madagascar Airlines', 'Transcontinents',
+  'SODIAT Petrolium', 'MadaPrint Services', 'Securitas Madagascar', 'Prochimad',
+  'MadaClean Facility', 'Comdata Madagascar', 'MadaOffice Fournitures', 'VIMA Construction',
+  'Aquarelle Madagascar', 'Groupe Basan', 'Madacompost', 'MadaTel Solutions',
+  'Tropic Madagascar', 'MadaFood Distribution', 'Sahanivotry Hydro', 'MadaLogistique',
+  'CNaPS Services', 'MadaConseil',
 ] as const
 
 const OWNERS = [
-  'Claire Dumas', 'Julien Morel', 'Sophie Lambert', 'Thomas Girard', 'Nadia Benali', 'Hugo Fontaine',
-  'Émilie Rousseau', 'Karim Haddad', 'Laure Chevalier', 'Antoine Marchand', 'Inès Garnier', 'Paul Lefèvre',
+  'Ravaka Rasoanaivo', 'Hery Rakotomalala', 'Mialy Andriamihaja', 'Tiana Randriamiarisoa', 'Fara Rakoto', 'Toky Andrianjafy',
+  'Émilie Rousseau', 'Mamy Randrianarisoa', 'Voahirana Ravelonarivo', 'Feno Rakotondrabe', 'Inès Garnier', 'Paul Lefèvre',
 ]
 
 const OBJECTS: Record<ContractType, string[]> = {
@@ -91,9 +95,9 @@ const CRAFTED_CRITICALITY: Criticality[] = [
   'Critique', 'Majeur', 'Critique', 'Critique', 'Majeur', 'Standard', 'Critique', 'Majeur', 'Standard', 'Majeur', 'Faible',
 ]
 
-function siret() {
+function nif() {
   let s = ''
-  for (let i = 0; i < 14; i++) s += between(0, 9)
+  for (let i = 0; i < 10; i++) s += between(0, 9)
   return s
 }
 
@@ -155,13 +159,13 @@ function generateContracts(): Contract[] {
       endDate,
       supplier: {
         name: supplierName,
-        siret: siret(),
-        legalContact: pick(['M. Bernard', 'Mme Petit', 'M. Durand', 'Mme Leroy', 'M. Moreau', 'Mme Simon']),
-        email: `juridique@${slug(supplierName)}.fr`,
+        nif: nif(),
+        legalContact: pick(['M. Rakoto', 'Mme Rasoanaivo', 'M. Randria', 'Mme Andriamihaja', 'M. Razafindrakoto', 'Mme Ravelonarivo']),
+        email: `contrats@${slug(supplierName)}.mg`,
       },
       department: pick(DEPARTMENTS),
       owner,
-      currency: 'EUR',
+      currency: 'MGA',
       billing: pick(BILLING_PERIODS),
       paymentTerms: pick(['30 jours fin de mois', '45 jours date de facture', '60 jours date de facture', 'À réception']),
       priceRevision,
@@ -240,7 +244,7 @@ function closedDispute(n: number, contractIdx: number, type: Dispute['type'], am
     ],
     evidence: defaultEvidence(c),
     legalAnalysis: 'Manquement établi au regard des engagements de niveau de service.',
-    financialAssessment: `Préjudice évalué à ${amount.toLocaleString('fr-FR')} € HT.`,
+    financialAssessment: `Préjudice évalué à ${amount.toLocaleString('fr-FR')} Ar HT.`,
     legalDueAt: iso(addDays(start, 5), '18:00'),
     financeDueAt: iso(addDays(start, 3), '18:00'),
     exchanges: [
@@ -263,9 +267,9 @@ export function defaultEvidence(c: Contract): Dispute['evidence'] {
 }
 
 export const initialDisputes: Dispute[] = [
-  closedDispute(1, 40, 'Facturation non conforme', 12_400, 11_900, '2026-01-12', 34),
-  closedDispute(2, 77, 'Manquement contractuel', 38_000, 22_500, '2026-02-20', 51),
-  closedDispute(3, 102, 'Contestation de reconduction', 46_000, 0, '2026-03-18', 27),
+  closedDispute(1, 40, 'Facturation non conforme', eurosToMGA(12_400), eurosToMGA(11_900), '2026-01-12', 34),
+  closedDispute(2, 77, 'Manquement contractuel', eurosToMGA(38_000), eurosToMGA(22_500), '2026-02-20', 51),
+  closedDispute(3, 102, 'Contestation de reconduction', eurosToMGA(46_000), 0, '2026-03-18', 27),
   closedDispute(4, 130, 'Facturation non conforme', 8_700, 8_700, '2026-05-04', 19),
   closedDispute(5, 166, 'Manquement contractuel', 61_500, 40_000, '2026-06-09', 63),
   closedDispute(6, 201, 'Facturation non conforme', 5_300, 5_300, '2026-08-27', 15),
@@ -275,7 +279,7 @@ export const initialDisputes: Dispute[] = [
     type: 'Facturation non conforme',
     source: 'Moteur d’alertes',
     description: `Écart de 18 % entre la facture trimestrielle et le bordereau de prix contractuel (${initialContracts[3].reference}).`,
-    amountAtStake: 68_400,
+    amountAtStake: eurosToMGA(68_400),
     createdAt: iso(addDays(TODAY, -6), '08:47'),
     createdBy: 'SYS-ALERT',
     status: 'Analyse interne',
@@ -298,7 +302,7 @@ export const initialDisputes: Dispute[] = [
     type: 'Contestation de reconduction',
     source: 'Manuel',
     description: `Le fournisseur conteste la validité de la résiliation notifiée pour ${initialContracts[1].reference}.`,
-    amountAtStake: 24_000,
+    amountAtStake: eurosToMGA(24_000),
     createdAt: iso(addDays(TODAY, -19), '11:05'),
     createdBy: 'USR-ACH-022',
     status: 'Négociation',
@@ -310,7 +314,7 @@ export const initialDisputes: Dispute[] = [
     ],
     evidence: defaultEvidence(initialContracts[1]),
     legalAnalysis: 'Préavis notifié par email alors que le contrat impose la lettre recommandée — risque modéré.',
-    financialAssessment: 'Exposition : 12 mois de reconduction, soit 24 000 € HT.',
+    financialAssessment: 'Exposition : 12 mois de reconduction, soit 120 000 000 Ar HT.',
     legalDueAt: iso(addDays(TODAY, -14), '18:00'),
     financeDueAt: iso(addDays(TODAY, -16), '18:00'),
     exchanges: [
@@ -334,10 +338,10 @@ export const initialDecisions: Decision[] = [
   },
   {
     id: 'DEC-02',
-    title: 'Escalade litige > 50 k€',
+    title: 'Escalade litige > 254 M Ar',
     contractId: initialContracts[3].id,
-    context: 'Litige LIT-2026-0007 escaladé automatiquement (seuil de 50 000 € dépassé).',
-    amount: 68_400,
+    context: `Litige LIT-2026-0007 escalad? automatiquement (seuil de ${ESCALATION_THRESHOLD.toLocaleString('fr-FR')} Ar d?pass?).`,
+    amount: eurosToMGA(68_400),
     dueDate: addDays(TODAY, 2),
     status: 'En attente',
   },
@@ -362,9 +366,9 @@ export const initialDecisions: Decision[] = [
 ]
 
 export const USERS: Record<string, string> = {
-  'USR-JUR-014': 'Claire Dumas · Juriste',
-  'USR-ACH-022': 'Julien Morel · Achats',
-  'USR-FIN-008': 'Sophie Lambert · Finance',
+  'USR-JUR-014': 'Ravaka Rasoanaivo · Juriste',
+  'USR-ACH-022': 'Hery Rakotomalala · Achats',
+  'USR-FIN-008': 'Mialy Andriamihaja · Finance',
   'USR-DG-001': 'Marc Delattre · DG',
   'SYS-ALERT': 'Moteur d’alertes',
   EXT: 'Fournisseur',

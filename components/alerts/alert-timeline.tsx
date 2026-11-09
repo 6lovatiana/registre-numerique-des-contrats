@@ -14,7 +14,7 @@ export function AlertTimeline({ contract }: { contract: Contract }) {
   const todayPos = Math.max(0, Math.min(100, (diffDays(start, TODAY) / SPAN) * 100))
 
   return (
-    <div>
+    <div className="@container">
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted-foreground">
         <span>
           Référence de calcul : <span className="font-medium text-foreground">{referenceLabel(contract)}</span> ·{' '}
@@ -23,7 +23,7 @@ export function AlertTimeline({ contract }: { contract: Contract }) {
         {contract.tacitRenewal && <span>Échéance contractuelle : {formatDate(contract.endDate)}</span>}
       </div>
 
-      <div className="relative mx-4 mt-10 mb-4">
+      <div className="relative mx-4 mt-10 mb-4 hidden @xl:block">
         <div className="h-1.5 rounded-full bg-muted" />
         <div className="absolute top-0 left-0 h-1.5 rounded-full bg-primary/25" style={{ width: `${todayPos}%` }} />
 
@@ -57,10 +57,10 @@ export function AlertTimeline({ contract }: { contract: Contract }) {
         </div>
       </div>
 
-      <ol className="mt-10 grid gap-2 sm:grid-cols-5">
+      <ol className="mt-4 grid grid-cols-2 gap-2 @xl:grid-cols-5">
         {MILESTONES.map((m) => {
           const passed = remaining <= m.offset
-          const current = passed && (MILESTONES.find((x) => remaining <= x.offset && x.offset < m.offset) === undefined)
+          const current = remaining >= 0 && passed && (MILESTONES.find((x) => remaining <= x.offset && x.offset < m.offset) === undefined)
           return (
             <li
               key={m.level}
@@ -78,7 +78,7 @@ export function AlertTimeline({ contract }: { contract: Contract }) {
               </div>
               <p className="mt-2 font-medium text-foreground">{m.label}</p>
               <p className="tabular-nums">{formatShortDate(milestoneDate(contract, m.offset))}</p>
-              <p className="mt-1">{passed ? (current ? 'Jalon en cours' : 'Notification émise') : 'Planifiée'}</p>
+              <p className="mt-1">{remaining < 0 ? 'Échéance dépassée' : current ? 'Jalon actuel' : passed ? 'Date passée' : 'À venir'}</p>
             </li>
           )
         })}

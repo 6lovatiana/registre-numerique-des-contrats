@@ -16,6 +16,7 @@ import { FinanceView } from './finance-view'
 import { LegalView } from './legal-view'
 import { PurchasingView } from './purchasing-view'
 import { SummaryBanner } from './summary-banner'
+import { ContractAssistant } from './contract-assistant'
 
 const PROFILES = [
   { id: 'legal', label: 'Juriste / Contract Manager', short: 'Juriste', icon: Scale, View: LegalView },
@@ -73,6 +74,7 @@ export function Dashboard() {
       </div>
 
       <DeadlineCalendar contracts={filtered} />
+      <ContractAssistant />
     </div>
   )
 }

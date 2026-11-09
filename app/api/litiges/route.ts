@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { eurosToMGA, ESCALATION_THRESHOLD_MGA } from '@/lib/currency'
 
 export const runtime = 'nodejs'
 
@@ -12,8 +13,8 @@ export async function GET(request: Request) {
     const fournisseur = url.searchParams.get('fournisseur')
     if (statut) { values.push(statut); filters.push(`l.statut = $${values.length}`) }
     if (fournisseur) { values.push(`%${fournisseur}%`); filters.push(`c.fournisseur ILIKE $${values.length}`) }
-    const result = await db.query(`SELECT l.*, c.fournisseur FROM litiges l JOIN contrats c ON c.id = l.contrat_id WHERE ${filters.join(' AND ')} ORDER BY l.date_creation DESC`, values)
-    return NextResponse.json(result.rows)
+    const result = await db.query(`SELECT l.*, c.fournisseur, c.donnees->>'currency' AS devise_contrat FROM litiges l JOIN contrats c ON c.id = l.contrat_id WHERE ${filters.join(' AND ')} ORDER BY l.date_creation DESC`, values)
+    return NextResponse.json(result.rows.map((row) => ({ ...row, montant_concerne: row.devise_contrat === 'EUR' ? eurosToMGA(Number(row.montant_concerne)) : row.montant_concerne })))
   } catch (error) {
     console.error('GET /api/litiges failed', error)
     return NextResponse.json({ detail: 'Erreur de lecture de la base de données.' }, { status: 500 })
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     const seq = await client.query("SELECT COALESCE(MAX(SPLIT_PART(reference_litige, '-', 3)::int), 0) + 1 AS n FROM litiges WHERE reference_litige LIKE $1", [`LIT-${year}-%`])
     const ref = body.reference_litige ?? `LIT-${year}-${String(seq.rows[0].n).padStart(4, '0')}`
     if (!/^LIT-\d{4}-\d{4}$/.test(ref)) { await client.query('ROLLBACK'); return NextResponse.json({ detail: 'Format attendu : LIT-AAAA-NNNN.' }, { status: 422 }) }
-    const escalade = Number(body.montant_concerne) > 50000 || contrat.rows[0].criticality === 'Critique'
+    const escalade = Number(body.montant_concerne) > ESCALATION_THRESHOLD_MGA || contrat.rows[0].criticality === 'Critique'
     const created = await client.query(`INSERT INTO litiges (reference_litige, contrat_id, type_litige, description, montant_concerne, statut, priorite, escalation_dg, id_utilisateur_action)
       VALUES ($1,$2,$3,$4,$5,'Nouveau',$6,$7,$8) RETURNING *`, [ref, body.contrat_id, body.type_litige, body.description.trim(), body.montant_concerne, escalade ? 'Haute' : 'Normale', escalade, request.headers.get('x-user-id') ?? 'USR-LOCAL'])
     await client.query('COMMIT')

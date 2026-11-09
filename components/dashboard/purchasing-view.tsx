@@ -1,7 +1,7 @@
 'use client'
 
 import { Bar, Panel, PanelHeader, Stat } from '@/components/registry/bits'
-import { formatCompactEUR, formatEUR, formatPercent } from '@/lib/format'
+import { formatCompactMGA, formatMGA, formatPercent } from '@/lib/format'
 import { avgPerformance, contractLeakage, performanceDistribution, renewalVsTermination, topSuppliers } from '@/lib/metrics'
 import type { Contract } from '@/lib/types'
 
@@ -17,9 +17,9 @@ export function PurchasingView({ contracts }: { contracts: Contract[] }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Valeur totale du portefeuille" value={formatCompactEUR(total)} hint={`${contracts.length} contrats`} />
+        <Stat label="Valeur totale du portefeuille" value={formatCompactMGA(total)} hint={`${contracts.length} contrats`} />
         <Stat label="Taux de renouvellement" value={formatPercent(rvt.rate)} tone="success" hint={`${rvt.renewed} renouvelés · ${rvt.terminated} résiliés`} />
-        <Stat label="Fuite contractuelle" value={formatCompactEUR(leak.total)} tone="warning" hint="Dépassements + achats hors contrat" />
+        <Stat label="Fuite contractuelle" value={formatCompactMGA(leak.total)} tone="warning" hint="Dépassements + achats hors contrat" />
         <Stat label="Score fournisseurs moyen" value={`${perf.toFixed(1)} / 100`} />
       </div>
 
@@ -33,7 +33,7 @@ export function PurchasingView({ contracts }: { contracts: Contract[] }) {
                 <div className="min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="truncate font-medium">{s.name}</span>
-                    <span className="shrink-0 text-xs tabular-nums">{formatEUR(s.value)}</span>
+                    <span className="shrink-0 text-xs tabular-nums">{formatMGA(s.value)}</span>
                   </div>
                   <div className="mt-1.5">
                     <Bar value={s.value} max={top[0]?.value ?? 1} />
@@ -62,11 +62,11 @@ export function PurchasingView({ contracts }: { contracts: Contract[] }) {
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Dépassements budgétaires</dt>
-                <dd className="font-medium tabular-nums">{formatEUR(leak.overspend)}</dd>
+                <dd className="font-medium tabular-nums">{formatMGA(leak.overspend)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Achats hors conformité (4 %)</dt>
-                <dd className="font-medium tabular-nums">{formatEUR(leak.offContract)}</dd>
+                <dd className="font-medium tabular-nums">{formatMGA(leak.offContract)}</dd>
               </div>
             </dl>
           </Panel>

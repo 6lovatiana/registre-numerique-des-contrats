@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, RefreshCw } from 'lucide
 import { Button } from '@/components/ui/button'
 import { CriticalityBadge, DaysBadge } from '@/components/registry/bits'
 import { daysLeft, noticeDeadline } from '@/lib/alerts'
-import { formatDate, formatEUR } from '@/lib/format'
+import { formatDate, formatMGA } from '@/lib/format'
 import type { Contract } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -73,13 +73,13 @@ export function ContractTable({ contracts, onSelect }: { contracts: Contract[]; 
                   </td>
                   <td className="px-3 py-2.5">
                     <p className="font-medium">{c.supplier.name}</p>
-                    <p className="text-xs text-muted-foreground tabular-nums">{c.supplier.siret}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{c.supplier.nif}</p>
                   </td>
                   <td className="max-w-64 px-3 py-2.5">
                     <p className="text-xs text-muted-foreground">{c.type}</p>
                     <p className="truncate">{c.object}</p>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-medium tabular-nums">{formatEUR(c.amount)}</td>
+                  <td className="px-3 py-2.5 text-right font-medium tabular-nums">{formatMGA(c.amount)}</td>
                   <td className="px-3 py-2.5 tabular-nums">
                     <p>{formatDate(c.endDate)}</p>
                     {c.tacitRenewal && deadline && (

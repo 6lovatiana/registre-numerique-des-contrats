@@ -1,11 +1,16 @@
 'use client'
 
-import { FileText } from 'lucide-react'
+import { AlertTriangle, FileText, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { useRegistry } from '@/lib/store'
 import { AlertTimeline } from '@/components/alerts/alert-timeline'
 import { CriticalityBadge, DaysBadge } from '@/components/registry/bits'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { daysLeft, noticeDeadline } from '@/lib/alerts'
-import { formatDate, formatEUR } from '@/lib/format'
+import { formatDate, formatMGA } from '@/lib/format'
 import type { Contract } from '@/lib/types'
 
 export function ContractDetailSheet({ contract, onClose }: { contract: Contract | null; onClose: () => void }) {
@@ -19,7 +24,19 @@ export function ContractDetailSheet({ contract, onClose }: { contract: Contract 
 }
 
 function Detail({ c }: { c: Contract }) {
+  const { prolongContract } = useRegistry()
+  const [newEndDate, setNewEndDate] = useState('')
+  const [savingExtension, setSavingExtension] = useState(false)
   const deadline = noticeDeadline(c)
+  const saveExtension = async () => {
+    setSavingExtension(true)
+    try {
+      await prolongContract(c.id, newEndDate)
+      toast.success('Contrat prolongé', { description: `Nouvelle échéance : ${formatDate(newEndDate)}.` })
+      setNewEndDate('')
+    } catch (error) { toast.error('Prolongation impossible', { description: error instanceof Error ? error.message : 'Réessayez.' }) }
+    finally { setSavingExtension(false) }
+  }
   return (
     <>
       <SheetHeader className="border-b">
@@ -47,9 +64,20 @@ function Detail({ c }: { c: Contract }) {
           <Row label="Durée" value={`${c.durationMonths} mois`} />
         </Group>
 
+        <section className="rounded-lg border bg-muted/20 p-3">
+          <h3 className="text-sm font-semibold">Prolonger le contrat</h3>
+          <p className="mt-1 text-xs text-muted-foreground">La nouvelle date sera enregistrée avec une trace dans l’historique des actions.</p>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-xs font-medium">Nouvelle échéance
+              <Input type="date" min={c.endDate} value={newEndDate} onChange={(event) => setNewEndDate(event.target.value)} aria-label="Nouvelle date d’échéance" />
+            </label>
+            <Button type="button" disabled={!newEndDate || newEndDate <= c.endDate || savingExtension} onClick={() => void saveExtension()}>{savingExtension ? 'Enregistrement…' : 'Enregistrer la prolongation'}</Button>
+          </div>
+        </section>
+
         <Group title="Fournisseur">
           <Row label="Raison sociale" value={c.supplier.name} />
-          <Row label="SIRET" value={c.supplier.siret} />
+          <Row label="NIF" value={c.supplier.nif} />
           <Row label="Contact juridique" value={c.supplier.legalContact} />
           <Row label="Email" value={c.supplier.email} />
           <Row label="Département" value={c.department} />
@@ -57,12 +85,12 @@ function Detail({ c }: { c: Contract }) {
         </Group>
 
         <Group title="Financier">
-          <Row label="Montant HT" value={formatEUR(c.amount)} />
+          <Row label="Montant HT" value={formatMGA(c.amount)} />
           <Row label="Devise" value={c.currency} />
           <Row label="Facturation" value={c.billing} />
           <Row label="Paiement" value={c.paymentTerms} />
           <Row label="Révision de prix" value={c.priceRevision ? `Oui · ${c.priceIndex}` : 'Non'} />
-          <Row label="Budget / Réalisé" value={`${formatEUR(c.budget)} / ${formatEUR(c.actualSpent)}`} />
+          <Row label="Budget / Réalisé" value={`${formatMGA(c.budget)} / ${formatMGA(c.actualSpent)}`} />
         </Group>
 
         <Group title="Reconduction & résiliation">
@@ -75,10 +103,48 @@ function Detail({ c }: { c: Contract }) {
 
         <Group title="Clauses & garanties">
           <Row label="Pénalités de retard" value={c.latePenalty ? `${c.latePenaltyRate} %/sem. · plafond ${c.latePenaltyCap} %` : 'Non'} />
-          <Row label="Pénalité résiliation anticipée" value={c.earlyTerminationPenalty ? formatEUR(c.earlyTerminationAmount ?? 0) : 'Non'} />
-          <Row label="Garantie bancaire" value={c.bankGuarantee ? formatEUR(c.guaranteeAmount ?? 0) : 'Non'} />
+          <Row label="Pénalité résiliation anticipée" value={c.earlyTerminationPenalty ? formatMGA(c.earlyTerminationAmount ?? 0) : 'Non'} />
+          <Row label="Garantie bancaire" value={c.bankGuarantee ? formatMGA(c.guaranteeAmount ?? 0) : 'Non'} />
           <Row label="Score de performance" value={`${c.performanceScore} / 100`} />
         </Group>
+
+        {c.aiAnalysis && (
+          <section className="rounded-xl border border-primary/20 bg-accent/20 p-4">
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+              <Sparkles className="size-4" aria-hidden /> Fiche d’analyse IA
+            </h3>
+            <p className="text-sm leading-relaxed">{c.aiAnalysis.summary}</p>
+            {c.aiAnalysis.clauses.length > 0 && (
+              <div className="mt-4">
+                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Clauses repérées</h4>
+                <ul className="flex flex-col gap-2">
+                  {c.aiAnalysis.clauses.map((clause, index) => (
+                    <li key={`${clause.title}-${index}`} className="rounded-lg border bg-card p-3">
+                      <p className="text-sm font-medium">{clause.title} · {clause.status === 'present' ? 'Repérée' : clause.status === 'not_found' ? 'Non repérée dans le texte' : 'À vérifier'}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{clause.summary}</p>
+                      {clause.evidence && <blockquote className="mt-2 border-l-2 pl-2 text-xs italic text-muted-foreground">« {clause.evidence} »</blockquote>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {c.aiAnalysis.vigilance.length > 0 && (
+              <div className="mt-4">
+                <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><AlertTriangle className="size-3.5" aria-hidden /> Points de vigilance</h4>
+                <ul className="flex flex-col gap-2">
+                  {c.aiAnalysis.vigilance.map((item, index) => (
+                    <li key={`${item.title}-${index}`} className="rounded-lg border bg-card p-3">
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                      {item.evidence && <blockquote className="mt-2 border-l-2 pl-2 text-xs italic text-muted-foreground">« {item.evidence} »</blockquote>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">Analyse automatique indicative, à confirmer par le service juridique.</p>
+          </section>
+        )}
 
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Documents</h3>

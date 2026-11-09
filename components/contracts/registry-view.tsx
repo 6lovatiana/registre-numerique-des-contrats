@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { PageHeader } from '@/components/registry/bits'
 import { applyFilters, EMPTY_FILTERS } from '@/lib/filters'
-import { formatEUR } from '@/lib/format'
+import { formatMGA } from '@/lib/format'
 import { useRegistry } from '@/lib/store'
 import type { Contract } from '@/lib/types'
 import { ContractDetailSheet } from './contract-detail-sheet'
@@ -26,7 +26,7 @@ export function RegistryView() {
       <PageHeader
         eyebrow="Registre"
         title="Registre des contrats"
-        description={`${contracts.length} contrats actifs · ${formatEUR(total)} HT sur la sélection courante`}
+        description={`${contracts.length} contrats actifs · ${formatMGA(total)} HT sur la sélection courante`}
         actions={
           <>
             <ExportMenu contracts={filtered} />

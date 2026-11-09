@@ -1,7 +1,5 @@
 import type { AlertLevel, Contract } from './types'
 
-export const TODAY = '2026-10-21'
-
 const DAY_MS = 86_400_000
 
 export function parseISO(iso: string) {
@@ -11,6 +9,14 @@ export function parseISO(iso: string) {
 export function toISO(date: Date) {
   return date.toISOString().slice(0, 10)
 }
+
+function antananarivoToday() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Indian/Antananarivo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+export const TODAY = antananarivoToday()
 
 export function addDays(iso: string, days: number) {
   return toISO(new Date(parseISO(iso).getTime() + days * DAY_MS))
@@ -31,7 +37,7 @@ export function computeNoticeDeadline(endDate: string, noticeDays: number) {
 }
 
 export function noticeDeadline(c: Contract) {
-  if (!c.tacitRenewal || !c.noticeDays) return undefined
+  if (!c.noticeDays) return undefined
   return computeNoticeDeadline(c.endDate, c.noticeDays)
 }
 
@@ -41,7 +47,7 @@ export function referenceDate(c: Contract) {
 }
 
 export function referenceLabel(c: Contract) {
-  return c.tacitRenewal ? 'Date limite de préavis' : 'Date d’échéance'
+  return c.noticeDays ? 'Date limite de préavis' : 'Date d’échéance'
 }
 
 export function daysLeft(c: Contract, today = TODAY) {

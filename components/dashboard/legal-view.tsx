@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Bar, DaysBadge, Panel, PanelHeader, Stat } from '@/components/registry/bits'
 import { alertBucket, daysLeft, referenceLabel } from '@/lib/alerts'
-import { formatEUR, formatPercent } from '@/lib/format'
+import { formatMGA, formatPercent } from '@/lib/format'
 import { OPEN_DISPUTE, averageLifecycleMonths, renewalPipeline } from '@/lib/metrics'
 import { useRegistry } from '@/lib/store'
 import type { Contract } from '@/lib/types'
@@ -54,7 +54,7 @@ export function LegalView({ contracts }: { contracts: Contract[] }) {
                 <div className="mt-2">
                   <Bar value={col.items.length} max={maxCount} tone={col.tone} />
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground tabular-nums">{formatEUR(col.items.reduce((s, c) => s + c.amount, 0))} HT</p>
+                <p className="mt-2 text-xs text-muted-foreground tabular-nums">{formatMGA(col.items.reduce((s, c) => s + c.amount, 0))} HT</p>
               </div>
               <ul className="max-h-72 divide-y overflow-y-auto">
                 {[...col.items]

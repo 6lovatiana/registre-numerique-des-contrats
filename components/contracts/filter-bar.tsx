@@ -23,7 +23,7 @@ export function FilterBar({ value, onChange, resultCount }: { value: ContractFil
           type="search"
           value={value.query}
           onChange={(e) => set('query', e.target.value)}
-          placeholder="Recherche plein texte : référence, fournisseur, SIRET, objet, tag, indice, document…"
+          placeholder="Recherche plein texte : référence, fournisseur, NIF, objet, tag, indice, document…"
           aria-label="Recherche plein texte dans les contrats"
           className="h-10 pl-9"
         />
@@ -60,8 +60,8 @@ export function FilterBar({ value, onChange, resultCount }: { value: ContractFil
           type="number"
           min={0}
           inputMode="numeric"
-          placeholder="Montant min €"
-          aria-label="Montant minimum en euros"
+          placeholder="Montant min Ar"
+          aria-label="Montant minimum en ariary"
           value={value.minAmount}
           onChange={(e) => set('minAmount', e.target.value)}
         />
@@ -69,8 +69,8 @@ export function FilterBar({ value, onChange, resultCount }: { value: ContractFil
           type="number"
           min={0}
           inputMode="numeric"
-          placeholder="Montant max €"
-          aria-label="Montant maximum en euros"
+          placeholder="Montant max Ar"
+          aria-label="Montant maximum en ariary"
           value={value.maxAmount}
           onChange={(e) => set('maxAmount', e.target.value)}
         />

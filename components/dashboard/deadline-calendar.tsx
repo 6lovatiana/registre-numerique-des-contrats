@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { CriticalityBadge, DaysBadge, Panel, PanelHeader } from '@/components/registry/bits'
 import { TODAY, addDays, parseISO, referenceDate, referenceLabel } from '@/lib/alerts'
-import { formatDate, formatEUR } from '@/lib/format'
+import { formatDate, formatMGA } from '@/lib/format'
 import type { Contract } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,8 @@ export function DeadlineCalendar({ contracts }: { contracts: Contract[] }) {
   const leading = (parseISO(TODAY).getUTCDay() + 6) % 7
   const days = Array.from({ length: HORIZON + 1 }, (_, i) => addDays(TODAY, i))
   const items = byDay.get(selected) ?? []
+  const selectedIndex = days.indexOf(selected)
+  const monthLabel = parseISO(selected).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
   return (
     <Panel>
@@ -43,6 +46,11 @@ export function DeadlineCalendar({ contracts }: { contracts: Contract[] }) {
       />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div>
+          <div className="mb-2 flex items-center justify-between">
+            <button type="button" className="rounded-md p-2 hover:bg-muted disabled:opacity-40" aria-label="Jour précédent" disabled={selectedIndex <= 0} onClick={() => setSelected(days[selectedIndex - 1])}><ChevronLeft className="size-4" aria-hidden /></button>
+            <div className="flex items-center gap-2"><span className="text-sm font-semibold capitalize">{monthLabel}</span><button type="button" className="text-xs text-primary underline-offset-2 hover:underline" onClick={() => setSelected(TODAY)} title="Revenir à aujourd’hui">Aujourd’hui</button></div>
+            <button type="button" className="rounded-md p-2 hover:bg-muted disabled:opacity-40" aria-label="Jour suivant" disabled={selectedIndex >= days.length - 1} onClick={() => setSelected(days[selectedIndex + 1])}><ChevronRight className="size-4" aria-hidden /></button>
+          </div>
           <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-muted-foreground" aria-hidden>
             {WEEKDAYS.map((d, i) => (
               <span key={i}>{d}</span>
@@ -84,7 +92,7 @@ export function DeadlineCalendar({ contracts }: { contracts: Contract[] }) {
             })}
           </div>
         </div>
-        <div className="rounded-lg border bg-muted/30 p-3">
+        <div className="rounded-lg border bg-muted/30 p-3" aria-live="polite">
           <p className="text-xs font-semibold">{formatDate(selected)}</p>
           {items.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">Aucune échéance ce jour.</p>
@@ -99,7 +107,7 @@ export function DeadlineCalendar({ contracts }: { contracts: Contract[] }) {
                   <p className="mt-1 truncate font-medium">{c.supplier.name}</p>
                   <p className="text-muted-foreground">{referenceLabel(c)}</p>
                   <div className="mt-1.5 flex items-center justify-between">
-                    <span className="tabular-nums">{formatEUR(c.amount)}</span>
+                    <span className="tabular-nums">{formatMGA(c.amount)}</span>
                     <CriticalityBadge value={c.criticality} />
                   </div>
                 </li>

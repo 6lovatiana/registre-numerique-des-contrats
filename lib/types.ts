@@ -22,7 +22,7 @@ export const DEPARTMENTS = [
 ] as const
 export type Department = (typeof DEPARTMENTS)[number]
 
-export const CURRENCIES = ['EUR', 'USD', 'GBP'] as const
+export const CURRENCIES = ['MGA'] as const
 export type Currency = (typeof CURRENCIES)[number]
 
 export const BILLING_PERIODS = ['Mensuelle', 'Trimestrielle', 'Annuelle', 'Forfaitaire'] as const
@@ -32,6 +32,22 @@ export const TERMINATION_MODES = ['Lettre recommandée', 'Email', 'Portail fourn
 export type TerminationMode = (typeof TERMINATION_MODES)[number]
 
 export type LastDecision = 'Renouvelé' | 'Résilié' | 'Aucune'
+
+export interface ContractAiAnalysis {
+  summary: string
+  clauses: {
+    title: string
+    status: 'present' | 'not_found' | 'uncertain'
+    summary: string
+    evidence: string
+  }[]
+  vigilance: {
+    level: 'high' | 'medium' | 'info'
+    title: string
+    detail: string
+    evidence: string
+  }[]
+}
 
 export interface Contract {
   id: string
@@ -43,7 +59,7 @@ export interface Contract {
   endDate: string
   supplier: {
     name: string
-    siret: string
+    nif: string
     legalContact: string
     email: string
   }
@@ -77,6 +93,7 @@ export interface Contract {
   actualSpent: number
   lateDeliveries: number
   lastDecision: LastDecision
+  aiAnalysis?: ContractAiAnalysis
 }
 
 export const DISPUTE_STATUSES = [

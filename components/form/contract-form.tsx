@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { CalendarClock, RotateCcw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -14,15 +14,15 @@ import {
   confidenceStatus,
   formNoticeDeadline,
   formToContract,
-  simulateExtraction,
   validateContractForm,
   type ContractFormState,
   type Extraction,
   type FieldKey,
 } from '@/lib/contract-form'
 import { formatDate } from '@/lib/format'
+import { readContractPdf } from '@/lib/local-pdf'
 import { useRegistry } from '@/lib/store'
-import { BILLING_PERIODS, CONTRACT_TYPES, CRITICALITIES, CURRENCIES, DEPARTMENTS, TERMINATION_MODES } from '@/lib/types'
+import { BILLING_PERIODS, CONTRACT_TYPES, CRITICALITIES, CURRENCIES, DEPARTMENTS, TERMINATION_MODES, type ContractAiAnalysis } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { AiIngestion, INGESTION_STEPS } from './ai-ingestion'
 import { FileDrop, TagInput } from './file-inputs'
@@ -30,7 +30,7 @@ import { Conditional, FormProvider, FormSection, SelectField, TextAreaField, Tex
 
 const SECTIONS: { letter: string; label: string; fields: FieldKey[] }[] = [
   { letter: 'A', label: 'Identification', fields: ['reference', 'type', 'object', 'signatureDate', 'effectiveDate', 'endDate'] },
-  { letter: 'B', label: 'Parties', fields: ['supplierName', 'siret', 'legalContact', 'email', 'department', 'owner'] },
+  { letter: 'B', label: 'Parties', fields: ['supplierName', 'nif', 'legalContact', 'email', 'department', 'owner'] },
   { letter: 'C', label: 'Financier', fields: ['amount', 'currency', 'billing', 'paymentTerms', 'priceIndex'] },
   { letter: 'D', label: 'Durée', fields: ['durationMonths', 'renewalMonths', 'noticeDays', 'terminationMode'] },
   { letter: 'E', label: 'Pénalités', fields: ['latePenaltyRate', 'latePenaltyCap', 'earlyTerminationAmount', 'guaranteeAmount'] },
@@ -42,6 +42,7 @@ interface Ingestion {
   step: number
   progress: number
   results: Extraction[] | null
+  analysis: ContractAiAnalysis | null
 }
 
 export function ContractForm() {
@@ -52,10 +53,6 @@ export function ContractForm() {
   const [submitted, setSubmitted] = useState(false)
   const [confidence, setConfidence] = useState<Partial<Record<FieldKey, number>>>({})
   const [ingestion, setIngestion] = useState<Ingestion | null>(null)
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => () => void (timer.current && clearInterval(timer.current)), [])
-
   const references = useMemo(() => new Set(contracts.map((c) => c.reference)), [contracts])
   const nextReference = useMemo(() => {
     const max = contracts.reduce((m, c) => Math.max(m, Number(c.reference.slice(-4)) || 0), 0)
@@ -75,23 +72,30 @@ export function ContractForm() {
   const touch = (key: FieldKey) => setTouched((t) => (t.has(key) ? t : new Set(t).add(key)))
   const errorFor = (key: FieldKey) => (submitted || touched.has(key) ? errors[key] : undefined)
 
-  const runIngestion = (file: File) => {
-    if (timer.current) clearInterval(timer.current)
-    setIngestion({ fileName: file.name, step: 0, progress: 0, results: null })
-    let progress = 0
-    timer.current = setInterval(() => {
-      progress += 4 + Math.random() * 5
-      if (progress >= 100) {
-        if (timer.current) clearInterval(timer.current)
-        const results = simulateExtraction(file.name, nextReference)
-        applyExtraction(results)
-        setIngestion({ fileName: file.name, step: INGESTION_STEPS.length, progress: 100, results })
-        const review = results.filter((r) => confidenceStatus(r.score) !== 'validated').length
-        toast.success('Pré-remplissage IA terminé', { description: `${results.length - review} champs validés · ${review} à contrôler` })
-        return
-      }
-      setIngestion((s) => s && { ...s, progress, step: Math.min(INGESTION_STEPS.length - 1, Math.floor(progress / (100 / INGESTION_STEPS.length))) })
-    }, 120)
+  const runIngestion = async (file: File) => {
+    setIngestion({ fileName: file.name, step: 0, progress: 0, results: null, analysis: null })
+    try {
+      const text = await readContractPdf(file, (progress, step) => {
+        setIngestion((state) => state && { ...state, progress: Math.min(85, progress), step })
+      })
+      setIngestion((state) => state && { ...state, progress: 88, step: INGESTION_STEPS.length - 1 })
+      const response = await fetch('/api/extraction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, nextReference }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.detail ?? 'Extraction du contrat impossible.')
+      const results = payload.results as Extraction[]
+      const analysis = payload.analysis as ContractAiAnalysis
+      applyExtraction(results)
+      setIngestion({ fileName: file.name, step: INGESTION_STEPS.length, progress: 100, results, analysis })
+      const review = results.filter((result) => confidenceStatus(result.score) !== 'validated').length
+      toast.success('Extraction IA terminée', { description: `${results.length - review} champs fiables · ${review} à vérifier` })
+    } catch (error) {
+      setIngestion(null)
+      toast.error('Extraction IA impossible', { description: error instanceof Error ? error.message : 'Vérifiez Ollama et réessayez.' })
+    }
   }
 
   const applyExtraction = (results: Extraction[]) => {
@@ -99,8 +103,9 @@ export function ContractForm() {
     const scores: Partial<Record<FieldKey, number>> = {}
     for (const r of results) {
       scores[r.field] = r.score
-      if (confidenceStatus(r.score) !== 'manual') Object.assign(patch, { [r.field]: r.value })
-      else if (typeof r.value === 'string') Object.assign(patch, { [r.field]: '' })
+      // Confidence indicates whether a value needs review; it should not prevent
+      // the extracted value from being prefilled.
+      Object.assign(patch, { [r.field]: r.value })
     }
     setValues((v) => ({ ...v, ...patch }))
     setConfidence(scores)
@@ -115,7 +120,7 @@ export function ContractForm() {
       toast.error('Le formulaire contient des erreurs', { description: `${errorCount} champ${errorCount > 1 ? 's' : ''} à corriger` })
       return
     }
-    const contract = formToContract(values)
+    const contract = { ...formToContract(values), aiAnalysis: ingestion?.analysis ?? undefined }
     try {
       const formData = new FormData()
       formData.set('contract', JSON.stringify(contract))
@@ -133,7 +138,6 @@ export function ContractForm() {
   }
 
   const reset = () => {
-    if (timer.current) clearInterval(timer.current)
     setValues(EMPTY_FORM)
     setTouched(new Set())
     setSubmitted(false)
@@ -168,9 +172,7 @@ export function ContractForm() {
         <div className="grid gap-4 rounded-xl border border-dashed border-primary/40 bg-accent/30 p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <div>
             <h2 className="font-display text-sm tracking-wide">Ingestion automatique</h2>
-            <p className="mt-1 text-xs text-pretty text-muted-foreground">
-              Le document contractuel est analysé localement (OCR + NLP). Les champs extraits sont pré-remplis avec un score de confiance : {'> 95 %'} validé, 70–95 % à vérifier, {'< 70 %'} laissé vide.
-            </p>
+            <p className="mt-1 text-xs text-pretty text-muted-foreground">Ajoutez le contrat PDF pour préremplir les informations et obtenir une fiche d’analyse.</p>
           </div>
           <FileDrop
             label="Document contractuel (PDF)"
@@ -200,8 +202,8 @@ export function ContractForm() {
         </FormSection>
 
         <FormSection letter="B" title="Parties contractantes" description="Fournisseur et cocontractant interne">
-          <TextField name="supplierName" label="Fournisseur - Raison sociale" required />
-          <TextField name="siret" label="Fournisseur - SIRET" inputMode="numeric" placeholder="14 chiffres" required />
+          <TextField name="supplierName" label="Fournisseur - Raison sociale" suggestions={[...new Set(contracts.map((c) => c.supplier.name))]} hint="Saisissez ou choisissez un fournisseur déjà enregistré" required />
+          <TextField name="nif" label="Fournisseur - NIF" inputMode="numeric" placeholder="10 chiffres" required />
           <TextField name="legalContact" label="Fournisseur - Contact juridique" required />
           <TextField name="email" label="Fournisseur - Email" type="email" inputMode="email" required />
           <SelectField name="department" label="Cocontractant interne" options={DEPARTMENTS} required />
@@ -225,7 +227,9 @@ export function ContractForm() {
           <ToggleField name="tacitRenewal" label="Clause de reconduction tacite" description="Le contrat se renouvelle automatiquement sans préavis" />
           <Conditional show={values.tacitRenewal}>
             <TextField name="renewalMonths" label="Durée de reconduction" type="number" inputMode="numeric" min={1} suffix="mois" required />
-            <TextField name="noticeDays" label="Préavis de résiliation" type="number" inputMode="numeric" min={1} suffix="jours" hint={`Maximum ${MAX_B2B_NOTICE_DAYS} jours (B2B)`} required />
+          </Conditional>
+          <TextField name="noticeDays" label="Préavis de résiliation" type="number" inputMode="numeric" min={1} suffix="jours" hint={`Optionnel · maximum ${MAX_B2B_NOTICE_DAYS} jours (B2B)`} />
+          {values.noticeDays && (
             <div className="flex items-center gap-3 rounded-lg bg-primary p-3 text-primary-foreground md:col-span-2" aria-live="polite">
               <CalendarClock className="size-5 shrink-0" aria-hidden />
               <div className="flex-1">
@@ -234,7 +238,7 @@ export function ContractForm() {
               </div>
               {deadline && <span className="text-xs tabular-nums">{diffDays(TODAY, deadline) >= 0 ? `J-${diffDays(TODAY, deadline)}` : 'Dépassée'}</span>}
             </div>
-          </Conditional>
+          )}
         </FormSection>
 
         <FormSection letter="E" title="Pénalités et garanties" description="Clauses de protection financière">
@@ -300,3 +304,5 @@ export function ContractForm() {
     </FormProvider>
   )
 }
+
+

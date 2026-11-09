@@ -1,0 +1,7 @@
+Reste a faire
+-Preavis
+-Prolonger un contrat
+-CHAT IA assistant
+-Pas de liste deroulante trop long mais un autocomplete avec liste deroulante
+-UIX au niveau du calendrier
+-Controle de tous les champs

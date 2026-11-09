@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TODAY, addDays } from './alerts'
-import { defaultEvidence } from './mock-data'
+import { defaultEvidence, initialContracts, initialDecisions, initialDisputes } from './mock-data'
 import type { Contract, Decision, Dispute, DisputeStatus, DisputeType, Exchange } from './types'
 
 export const CURRENT_USER_ID = 'USR-JUR-014'
@@ -11,7 +11,7 @@ export type ContractAction = 'Renouvellement' | 'Renégociation' | 'Résiliation
 
 interface ActionLog {
   contractId: string
-  action: ContractAction
+  action: ContractAction | 'Prolongement'
   at: string
   userId: string
 }
@@ -22,6 +22,7 @@ interface RegistryState {
   decisions: Decision[]
   actions: ActionLog[]
   addContract: (c: Contract) => void
+  prolongContract: (id: string, endDate: string) => Promise<void>
   createDispute: (input: {
     contractId: string
     type: DisputeType
@@ -29,20 +30,21 @@ interface RegistryState {
     amountAtStake: number
     source: Dispute['source']
   }) => Promise<string>
+  createDecision: (contractId: string, action: ContractAction) => Promise<Decision>
   setDisputeStatus: (id: string, status: DisputeStatus, note?: string) => void
   updateDispute: (id: string, patch: Partial<Pick<Dispute, 'legalAnalysis' | 'financialAssessment' | 'closure'>>) => void
   addExchange: (id: string, exchange: Omit<Exchange, 'at' | 'userId'>) => void
   decide: (id: string, status: Decision['status']) => void
-  logAction: (contractId: string, action: ContractAction) => void
+  logAction: (contractId: string, action: ContractAction) => Promise<void>
   contractById: (id: string) => Contract | undefined
 }
 
 const RegistryContext = createContext<RegistryState | null>(null)
 
 export function RegistryProvider({ children }: { children: ReactNode }) {
-  const [contracts, setContracts] = useState<Contract[]>([])
-  const [disputes, setDisputes] = useState<Dispute[]>([])
-  const [decisions, setDecisions] = useState<Decision[]>([])
+  const [contracts, setContracts] = useState<Contract[]>(initialContracts)
+  const [disputes, setDisputes] = useState<Dispute[]>(initialDisputes)
+  const [decisions, setDecisions] = useState<Decision[]>(initialDecisions)
   const [actions, setActions] = useState<ActionLog[]>([])
 
   useEffect(() => {
@@ -51,12 +53,17 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
       fetch('/api/contrats').then((r) => r.ok ? r.json() : Promise.reject(new Error('Contrats indisponibles'))),
       fetch('/api/actions').then((r) => r.ok ? r.json() : Promise.reject(new Error('Actions indisponibles'))),
       fetch('/api/litiges').then((r) => r.ok ? r.json() : Promise.reject(new Error('Litiges indisponibles'))),
-    ]).then(([loadedContracts, loadedActions, loadedDisputes]) => {
+      fetch('/api/decisions').then((r) => r.ok ? r.json() : Promise.reject(new Error('Décisions indisponibles'))),
+    ]).then(([loadedContracts, loadedActions, loadedDisputes, loadedDecisions]) => {
       if (!active) return
-      setContracts(loadedContracts)
+      if (loadedContracts.length) {
+        setContracts(loadedContracts)
+        setDecisions([])
+      }
       setActions(loadedActions)
+      if (loadedContracts.length) setDecisions(loadedDecisions)
       const byId = new Map<string, Contract>(loadedContracts.map((c: Contract) => [c.id, c]))
-      setDisputes(loadedDisputes.map((row: Record<string, any>) => {
+      if (loadedContracts.length) setDisputes(loadedDisputes.map((row: Record<string, any>) => {
         const contractId = String(row.contrat_id)
         const contract = byId.get(contractId)
         const at = new Date(row.date_creation).toISOString()
@@ -80,6 +87,14 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
 
   const addContract = useCallback((c: Contract) => setContracts((prev) => [c, ...prev]), [])
 
+  const prolongContract: RegistryState['prolongContract'] = useCallback(async (id, endDate) => {
+    const response = await fetch(`/api/contrats/${encodeURIComponent(id)}/prolonger`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-User-ID': CURRENT_USER_ID }, body: JSON.stringify({ endDate }) })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.detail ?? 'Prolongation impossible.')
+    setContracts((previous) => previous.map((contract) => contract.id === id ? payload : contract))
+    setActions((previous) => [{ contractId: id, action: 'Prolongement', at: new Date().toISOString(), userId: CURRENT_USER_ID }, ...previous])
+  }, [])
+
   const createDispute: RegistryState['createDispute'] = useCallback(async (input) => {
     const response = await fetch('/api/litiges', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-User-ID': input.source === 'Moteur d’alertes' ? 'SYS-ALERT' : CURRENT_USER_ID },
@@ -94,6 +109,18 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
     setDisputes((prev) => [dispute, ...prev])
     return id
   }, [contractMap])
+
+  const createDecision: RegistryState['createDecision'] = useCallback(async (contractId, action) => {
+    const response = await fetch('/api/decisions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-User-ID': CURRENT_USER_ID },
+      body: JSON.stringify({ contractId, action }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.detail ?? 'Création de la demande impossible.')
+    setDecisions((prev) => [payload.decision, ...prev])
+    setActions((prev) => [payload.action, ...prev])
+    return payload.decision as Decision
+  }, [])
 
   const setDisputeStatus = useCallback((id: string, status: DisputeStatus, note?: string) => {
     setDisputes((prev) =>
@@ -134,14 +161,21 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const decide = useCallback((id: string, status: Decision['status']) => {
-    setDecisions((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)))
+  const decide = useCallback(async (id: string, status: Decision['status']) => {
+    const response = await fetch(`/api/decisions/${encodeURIComponent(id)}/statut`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-User-ID': CURRENT_USER_ID },
+      body: JSON.stringify({ status }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.detail ?? 'Mise à jour impossible.')
+    setDecisions((prev) => prev.map((d) => (d.id === id ? { ...d, status: payload.status } : d)))
   }, [])
 
-  const logAction = useCallback((contractId: string, action: ContractAction) => {
-    void fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-User-ID': CURRENT_USER_ID }, body: JSON.stringify({ contractId, action }) })
-      .then(async (response) => { if (!response.ok) throw new Error('Action non enregistrée'); setActions((prev) => [{ contractId, action, at: new Date().toISOString(), userId: CURRENT_USER_ID }, ...prev]) })
-      .catch((error) => console.error('Enregistrement de l’action impossible', error))
+  const logAction = useCallback(async (contractId: string, action: ContractAction) => {
+    const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-User-ID': CURRENT_USER_ID }, body: JSON.stringify({ contractId, action }) })
+    const logged = await response.json()
+    if (!response.ok) throw new Error(logged.detail ?? 'Action non enregistrée.')
+    setActions((prev) => [logged, ...prev])
   }, [])
 
   const value = useMemo(
@@ -151,7 +185,9 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
       decisions,
       actions,
       addContract,
+      prolongContract,
       createDispute,
+      createDecision,
       setDisputeStatus,
       updateDispute,
       addExchange,
@@ -159,7 +195,7 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
       logAction,
       contractById,
     }),
-    [contracts, disputes, decisions, actions, addContract, createDispute, setDisputeStatus, updateDispute, addExchange, decide, logAction, contractById],
+    [contracts, disputes, decisions, actions, addContract, prolongContract, createDispute, createDecision, setDisputeStatus, updateDispute, addExchange, decide, logAction, contractById],
   )
 
   return <RegistryContext.Provider value={value}>{children}</RegistryContext.Provider>
