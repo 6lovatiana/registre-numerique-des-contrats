@@ -4,4 +4,15 @@ Reste a faire
 -CHAT IA assistant
 -Pas de liste deroulante trop long mais un autocomplete avec liste deroulante
 -UIX au niveau du calendrier
--Controle de tous les champs
+-Controle de tous les champs 
+
+
+A ajouter
+-On peut voir le contenu de tous les contrats
+
+-On peut renouveller les contrats vu que ca n'envoie qu'un petit notification,avec les conditions necessaire pour renouvellement de contrat
+
+-l'IA(CHAT assistant) commet des erreurs genre,c'est comme s'il n'arrive pas a acceder au bonne information demandes
+exemple je demande les contrats qui expirent dans 60 jours et il me renvoie des contrats non coherentes en 2027 qui bn'expire meme pas en 2 jours
+
+-et complete automatiquement l'ID du contrat sur le formulaire de creation de contrat 

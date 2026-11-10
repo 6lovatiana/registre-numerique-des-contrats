@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, FileText, Sparkles } from 'lucide-react'
+import { AlertTriangle, Download, FileText, Printer, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { CriticalityBadge, DaysBadge } from '@/components/registry/bits'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { daysLeft, noticeDeadline } from '@/lib/alerts'
 import { formatDate, formatMGA } from '@/lib/format'
+import { exportContractPdf, exportContractWord } from '@/lib/contract-document-export'
 import type { Contract } from '@/lib/types'
 
 export function ContractDetailSheet({ contract, onClose }: { contract: Contract | null; onClose: () => void }) {
@@ -26,6 +27,7 @@ export function ContractDetailSheet({ contract, onClose }: { contract: Contract 
 function Detail({ c }: { c: Contract }) {
   const { prolongContract } = useRegistry()
   const [newEndDate, setNewEndDate] = useState('')
+  const [renewalConfirmed, setRenewalConfirmed] = useState(false)
   const [savingExtension, setSavingExtension] = useState(false)
   const deadline = noticeDeadline(c)
   const saveExtension = async () => {
@@ -49,6 +51,10 @@ function Detail({ c }: { c: Contract }) {
         <SheetDescription>
           {c.type} · {c.object}
         </SheetDescription>
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (!exportContractPdf(c)) toast.error('Autorisez les fenêtres pop-up pour imprimer le projet PDF.') }}><Printer data-icon="inline-start" aria-hidden />Projet PDF</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => { exportContractWord(c); toast.success('Projet Word téléchargé') }}><Download data-icon="inline-start" aria-hidden />Projet Word</Button>
+        </div>
       </SheetHeader>
 
       <div className="flex flex-col gap-6 p-4">
@@ -66,12 +72,18 @@ function Detail({ c }: { c: Contract }) {
 
         <section className="rounded-lg border bg-muted/20 p-3">
           <h3 className="text-sm font-semibold">Prolonger le contrat</h3>
-          <p className="mt-1 text-xs text-muted-foreground">La nouvelle date sera enregistrée avec une trace dans l’historique des actions.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Vérifiez les conditions du contrat avant toute prolongation : reconduction tacite, durée prévue et délai de préavis.</p>
+          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+            <li>Reconduction tacite : {c.tacitRenewal ? `oui, ${c.renewalMonths ?? 'durée non précisée'} mois` : 'non prévue dans la fiche'}.</li>
+            <li>Préavis contractuel : {c.noticeDays ? `${c.noticeDays} jours (limite ${deadline ? formatDate(deadline) : 'à vérifier'})` : 'non renseigné'}.</li>
+            <li>La date retenue doit être conforme à l’avenant ou à l’accord signé.</li>
+          </ul>
+          <label className="mt-3 flex items-start gap-2 text-xs"><input type="checkbox" checked={renewalConfirmed} onChange={(event) => setRenewalConfirmed(event.target.checked)} />J’ai vérifié les conditions de renouvellement et dispose de l’accord ou de l’avenant nécessaire.</label>
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1 text-xs font-medium">Nouvelle échéance
               <Input type="date" min={c.endDate} value={newEndDate} onChange={(event) => setNewEndDate(event.target.value)} aria-label="Nouvelle date d’échéance" />
             </label>
-            <Button type="button" disabled={!newEndDate || newEndDate <= c.endDate || savingExtension} onClick={() => void saveExtension()}>{savingExtension ? 'Enregistrement…' : 'Enregistrer la prolongation'}</Button>
+            <Button type="button" disabled={!renewalConfirmed || !newEndDate || newEndDate <= c.endDate || savingExtension} onClick={() => void saveExtension()}>{savingExtension ? 'Enregistrement…' : 'Enregistrer la prolongation'}</Button>
           </div>
         </section>
 
@@ -152,7 +164,7 @@ function Detail({ c }: { c: Contract }) {
             {c.documents.map((d) => (
               <li key={d.name} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
                 <FileText className="size-4 text-muted-foreground" aria-hidden />
-                {d.id ? <a className="flex-1 truncate underline-offset-2 hover:underline" href={`/api/documents/${d.id}`} target="_blank" rel="noreferrer">{d.name}</a> : <span className="flex-1 truncate">{d.name}</span>}
+                {d.id ? <a className="flex-1 truncate underline-offset-2 hover:underline" href={`/api/documents/${d.id}`} target="_blank" rel="noreferrer" aria-label={`Ouvrir le document ${d.name}`}>{d.name}</a> : <span className="flex-1 truncate">{d.name}</span>}
                 <span className="text-xs text-muted-foreground">{d.kind}</span>
               </li>
             ))}

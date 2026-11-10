@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CalendarClock, RotateCcw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -55,9 +55,13 @@ export function ContractForm() {
   const [ingestion, setIngestion] = useState<Ingestion | null>(null)
   const references = useMemo(() => new Set(contracts.map((c) => c.reference)), [contracts])
   const nextReference = useMemo(() => {
-    const max = contracts.reduce((m, c) => Math.max(m, Number(c.reference.slice(-4)) || 0), 0)
+    const prefix = `CTR-${TODAY.slice(0, 4)}-`
+    const max = contracts.filter((c) => c.reference.startsWith(prefix)).reduce((m, c) => Math.max(m, Number(c.reference.slice(-4)) || 0), 0)
     return `CTR-${TODAY.slice(0, 4)}-${String(max + 1).padStart(4, '0')}`
   }, [contracts])
+  useEffect(() => {
+    setValues((current) => !current.reference || references.has(current.reference) ? { ...current, reference: nextReference } : current)
+  }, [nextReference, references])
   const errors = validateContractForm(values, references)
   const errorCount = Object.keys(errors).length
 
@@ -138,7 +142,7 @@ export function ContractForm() {
   }
 
   const reset = () => {
-    setValues(EMPTY_FORM)
+    setValues({ ...EMPTY_FORM, reference: nextReference })
     setTouched(new Set())
     setSubmitted(false)
     setConfidence({})
